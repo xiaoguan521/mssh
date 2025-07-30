@@ -44,7 +44,7 @@ impl ScrollManager {
         }
     }
 
-    /// 移动到下一项
+    // /// 移动到下一项
     // pub fn next_item(&mut self) {
     //     if self.total_items > 0 {
     //         self.selected_index = (self.selected_index + 1) % self.total_items;
