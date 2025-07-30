@@ -1,11 +1,11 @@
-use std::process::Command;
-use std::io::Write;
-use std::os::unix::process::CommandExt;
 use crossterm::{
+    cursor::Show,
     execute,
     terminal::{disable_raw_mode, LeaveAlternateScreen},
-    cursor::Show,
 };
+use std::io::Write;
+use std::os::unix::process::CommandExt;
+use std::process::Command;
 
 use crate::config::SSHConfig;
 use crate::proxy::GlobalConfig;
@@ -40,7 +40,7 @@ impl SSHManager {
         execute!(
             std::io::stdout(),
             LeaveAlternateScreen,
-            Show  // 显示光标
+            Show // 显示光标
         )?;
 
         // 确保终端设置完全恢复
@@ -48,12 +48,13 @@ impl SSHManager {
 
         // 清屏并显示连接信息
         println!("\x1b[33m正在连接: {}\x1b[0m", config.address);
-        
+
         // 显示代理信息
         if config.use_global_proxy && self.global_config.proxy.is_enabled() {
-            println!("\x1b[33m全局代理:\x1b[0m {:?} {}:{}", 
-                self.global_config.proxy.proxy_type, 
-                self.global_config.proxy.host, 
+            println!(
+                "\x1b[33m全局代理:\x1b[0m {:?} {}:{}",
+                self.global_config.proxy.proxy_type,
+                self.global_config.proxy.host,
                 self.global_config.proxy.port.unwrap_or(
                     match self.global_config.proxy.proxy_type {
                         crate::proxy::ProxyType::Socks5 => 1080,
@@ -64,28 +65,25 @@ impl SSHManager {
             );
         } else if let Some(proxy) = &config.proxy {
             if proxy.is_enabled() {
-                println!("\x1b[33m自定义代理:\x1b[0m {:?} {}:{}", 
-                    proxy.proxy_type, 
-                    proxy.host, 
-                    proxy.port.unwrap_or(
-                        match proxy.proxy_type {
-                            crate::proxy::ProxyType::Socks5 => 1080,
-                            crate::proxy::ProxyType::Http => 8080,
-                            crate::proxy::ProxyType::None => 0,
-                        }
-                    )
+                println!(
+                    "\x1b[33m自定义代理:\x1b[0m {:?} {}:{}",
+                    proxy.proxy_type,
+                    proxy.host,
+                    proxy.port.unwrap_or(match proxy.proxy_type {
+                        crate::proxy::ProxyType::Socks5 => 1080,
+                        crate::proxy::ProxyType::Http => 8080,
+                        crate::proxy::ProxyType::None => 0,
+                    })
                 );
             }
         }
-        
+
         // 显示端口转发信息
         if let Some(pf) = &config.port_forward {
             if pf.enabled {
                 println!("\x1b[33m端口转发:\x1b[0m  {} <->  {}", pf.local, pf.remote);
             }
         }
-        
-
 
         // 再次强制刷新
         std::io::stdout().flush()?;
@@ -162,11 +160,11 @@ impl SSHManager {
         execute!(
             std::io::stdout(),
             LeaveAlternateScreen,
-            Show  // 确保显示光标
+            Show // 确保显示光标
         )?;
         std::io::stdout().flush()?;
 
         // If exec fails, return error
         Err(format!("执行失败: {}", err).into())
     }
-} 
+}

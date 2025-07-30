@@ -73,4 +73,4 @@ impl ProxyConfig {
             ProxyType::None => None,
         }
     }
-} 
+}

@@ -100,10 +100,10 @@ pub struct NavigationManager {
     pub mode: AppMode,
     pub selected_index: usize,
     pub focus: usize, // 0: list, 1: details
-    
+
     // 滚动状态管理
     pub scroll_manager: ScrollManager,
-    
+
     pub import_manager: ImportManager,
 }
 

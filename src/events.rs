@@ -1,6 +1,6 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use crate::app::App;
 use crate::navigation_manager::AppMode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub struct EventHandler;
 
@@ -13,7 +13,10 @@ impl EventHandler {
     ///
     /// # 返回
     /// 返回 Result，true 表示退出，false 表示继续，Err 表示错误
-    pub fn handle_key_event(app: &mut App, key: KeyEvent) -> Result<bool, Box<dyn std::error::Error>> {
+    pub fn handle_key_event(
+        app: &mut App,
+        key: KeyEvent,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
         match key {
             KeyEvent {
                 code: KeyCode::Char('q'),
@@ -52,13 +55,15 @@ impl EventHandler {
             }
 
             KeyEvent {
-                code: KeyCode::Char('l') | KeyCode::Char('L') | KeyCode::Char('o') | KeyCode::Char('O'),
+                code:
+                    KeyCode::Char('l') | KeyCode::Char('L') | KeyCode::Char('o') | KeyCode::Char('O'),
                 modifiers: KeyModifiers::CONTROL,
                 ..
             } => {
                 if matches!(*app.mode(), AppMode::List) {
                     if let Err(e) = app.show_import_selection() {
-                        app.message_manager.set_error_message(format!("显示导入选择失败: {}", e));
+                        app.message_manager
+                            .set_error_message(format!("显示导入选择失败: {}", e));
                     }
                 }
             }
@@ -81,8 +86,7 @@ impl EventHandler {
             }
 
             KeyEvent {
-                code: KeyCode::Up,
-                ..
+                code: KeyCode::Up, ..
             } => {
                 Self::handle_up_key(app);
             }
@@ -95,8 +99,7 @@ impl EventHandler {
             }
 
             KeyEvent {
-                code: KeyCode::Tab,
-                ..
+                code: KeyCode::Tab, ..
             } => {
                 Self::handle_tab_key(app);
             }
@@ -109,8 +112,7 @@ impl EventHandler {
             }
 
             KeyEvent {
-                code: KeyCode::Esc,
-                ..
+                code: KeyCode::Esc, ..
             } => {
                 Self::handle_escape_key(app);
             }
@@ -169,8 +171,7 @@ impl EventHandler {
             }
 
             KeyEvent {
-                code: KeyCode::End,
-                ..
+                code: KeyCode::End, ..
             } => {
                 Self::handle_end_key(app);
             }
@@ -212,14 +213,16 @@ impl EventHandler {
         {
             match operation(app) {
                 Ok(_) => {
-                    app.message_manager.set_success_message(success_msg.to_string());
+                    app.message_manager
+                        .set_success_message(success_msg.to_string());
                 }
                 Err(e) => {
-                    app.message_manager.set_error_message(format!("操作失败: {}", e));
+                    app.message_manager
+                        .set_error_message(format!("操作失败: {}", e));
                 }
             }
         }
-    
+
         match *app.mode() {
             AppMode::List => {
                 execute_and_handle_error(app, |a| a.connect_selected(), "连接成功");
@@ -237,7 +240,7 @@ impl EventHandler {
                 execute_and_handle_error(app, |a| a.save_proxy_config(), "代理配置保存成功");
             }
         }
-    
+
         Ok(())
     }
     /// 处理上箭头键事件
@@ -311,22 +314,28 @@ impl EventHandler {
             AppMode::SelectImport => app.toggle_import_selection(),
             AppMode::AddForm | AppMode::EditForm => {
                 match app.current_field() {
-                    5 => app.toggle_checkbox(),  // 端口转发
-                    8 => app.toggle_proxy_option(),  // 代理选项
+                    5 => app.toggle_checkbox(),     // 端口转发
+                    8 => app.toggle_proxy_option(), // 代理选项
                     _ => {}
                 }
             }
             AppMode::ProxyConfig => {
-                if app.current_field() == 0 {  // 代理类型字段
+                if app.current_field() == 0 {
+                    // 代理类型字段
                     // 通过 FormManager 切换代理类型
-                    let current_type = app.form_data().get("global_proxy_type")
+                    let current_type = app
+                        .form_data()
+                        .get("global_proxy_type")
                         .map(|t| match t.as_str() {
                             "Socks5" => "Http",
                             "Http" => "None",
                             _ => "Socks5",
                         })
                         .unwrap_or("Socks5");
-                    app.form_manager.form_data.data.insert("global_proxy_type".to_string(), current_type.to_string());
+                    app.form_manager
+                        .form_data
+                        .data
+                        .insert("global_proxy_type".to_string(), current_type.to_string());
                 }
             }
             _ => {}

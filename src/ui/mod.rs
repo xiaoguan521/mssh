@@ -1,23 +1,20 @@
-mod list;
-mod form;
 mod dialog;
+mod form;
 mod import;
+mod list;
 mod proxy;
 mod scrollbar;
 
-use ratatui::{
-    prelude::*,
-    widgets::*,
-};
 use crate::app::App;
 use crate::navigation_manager::AppMode;
+use ratatui::{prelude::*, widgets::*};
 
-pub use list::render_list;
-pub use form::render_form;
 pub use dialog::render_dialog;
+pub use form::render_form;
 pub use import::render_import;
+pub use list::render_list;
 pub use proxy::render_proxy_config;
-pub use scrollbar::{ScrollManager, render_scrollbar};
+pub use scrollbar::{render_scrollbar, ScrollManager};
 
 /// 渲染主用户界面
 ///
@@ -28,21 +25,28 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(0),      // 主内容区域
+            Constraint::Min(0), // 主内容区域
             // Constraint::Length(3),   // 消息栏
-            Constraint::Length(3),   // 帮助栏
+            Constraint::Length(3), // 帮助栏
         ])
         .split(f.size());
 
     match *app.mode() {
         AppMode::List => render_list(f, chunks[0], app),
         AppMode::AddForm | AppMode::EditForm => render_form(f, chunks[0], app),
-        AppMode::DeleteDialog => render_dialog(f, chunks[0], app, "确认删除", "确定要删除这个SSH配置吗？", &["确定", "取消"]),
+        AppMode::DeleteDialog => render_dialog(
+            f,
+            chunks[0],
+            app,
+            "确认删除",
+            "确定要删除这个SSH配置吗？",
+            &["确定", "取消"],
+        ),
         AppMode::SelectImport => render_import(f, chunks[0], app),
         AppMode::ProxyConfig => render_proxy_config(f, chunks[0], app),
     }
 
-    render_message_bar(f,  app);
+    render_message_bar(f, app);
     render_help_bar(f, chunks[1], app);
 }
 
@@ -68,10 +72,7 @@ fn render_help_bar(f: &mut Frame, area: Rect, app: &App) {
             Span::raw("Tab/↑↓: 切换字段 | "),
             Span::raw("Esc: 取消"),
         ],
-        AppMode::DeleteDialog => vec![
-            Span::raw("Enter: 确认删除 | "),
-            Span::raw("Esc: 取消"),
-        ],
+        AppMode::DeleteDialog => vec![Span::raw("Enter: 确认删除 | "), Span::raw("Esc: 取消")],
         AppMode::SelectImport => vec![
             Span::raw("Space: 选择/取消 | "),
             Span::raw("Ctrl+A: 全选 | "),
@@ -86,7 +87,12 @@ fn render_help_bar(f: &mut Frame, area: Rect, app: &App) {
     };
 
     let help = Paragraph::new(Line::from(help_text))
-        .block(Block::default().borders(Borders::ALL).title("帮助").border_style(Style::default().fg(Color::LightBlue)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("帮助")
+                .border_style(Style::default().fg(Color::LightBlue)),
+        )
         .wrap(Wrap { trim: true });
 
     f.render_widget(help, area);
@@ -136,15 +142,15 @@ fn centered_rect(percent_x: u16, percent_y: u16, height: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(r);
-    
+
     // 垂直方向根据percent_y调整
     let available_height = r.height;
     let top_margin = available_height.saturating_mul(percent_y) / 100;
-    
+
     // 确保有足够的空间放置矩形
     let remaining_height = available_height.saturating_sub(top_margin);
     let actual_height = std::cmp::min(height, remaining_height);
-    
+
     Rect {
         x: horizontal_layout[1].x,
         y: r.y + top_margin,

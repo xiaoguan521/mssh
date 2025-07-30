@@ -1,26 +1,23 @@
 mod app;
 mod config;
-mod ssh;
-mod ui;
-mod proxy;
-mod forms;
 mod events;
 mod form_manager;
+mod forms;
 mod message_manager;
 mod navigation_manager;
+mod proxy;
+mod ssh;
+mod ui;
 
-use std::io;
-use ratatui::{
-    prelude::CrosstermBackend,
-    Terminal,
-};
+use app::App;
 use crossterm::{
     event::{self, Event},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use app::App;
 use events::EventHandler;
+use ratatui::{prelude::CrosstermBackend, Terminal};
+use std::io;
 
 /// SSH Manager 主程序入口
 ///
@@ -32,7 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config_path = None;
     let mut import_ssh = false;
     let mut quick_connect = None;
-    
+
     for (i, arg) in args.iter().enumerate() {
         if arg == "--config" || arg == "-c" {
             if i + 1 < args.len() {
@@ -88,7 +85,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 创建应用
     let mut app = App::new(config_path)?;
-    
+
     // 处理快速连接
     if let Some(target) = quick_connect {
         if let Err(e) = app.quick_connect(&target) {
@@ -97,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    
+
     // 处理无参数快速连接（第一个参数作为目标）
     if args.len() > 1 && !args[1].starts_with('-') {
         let target = &args[1];
@@ -107,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         return Ok(());
     }
-    
+
     if import_ssh {
         if let Err(e) = app.show_import_selection() {
             eprintln!("显示导入选择失败: {}", e);
@@ -123,10 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 恢复终端
     disable_raw_mode()?;
-    execute!(
-        terminal.backend_mut(),
-        LeaveAlternateScreen
-    )?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
     if let Err(err) = res {
@@ -151,15 +145,16 @@ fn run_app<B: ratatui::backend::Backend>(
     loop {
         // 检查并清理过期消息
         app.check_message();
-        
+
         terminal.draw(|f| ui::ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
             match EventHandler::handle_key_event(app, key) {
                 Ok(true) => return Ok(()), // 退出信号
-                Ok(false) => continue,      // 继续处理
+                Ok(false) => continue,     // 继续处理
                 Err(e) => {
-                    app.message_manager.set_error_message(format!("事件处理错误: {}", e));
+                    app.message_manager
+                        .set_error_message(format!("事件处理错误: {}", e));
                 }
             }
         }

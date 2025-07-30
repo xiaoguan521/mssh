@@ -1,14 +1,14 @@
-use std::collections::HashMap;
 use crate::config::SSHConfig;
-use crate::proxy::{ProxyConfig, ProxyType};
 use crate::forms::FormData;
+use crate::proxy::{ProxyConfig, ProxyType};
 use crate::ui::ScrollManager;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct FormManager {
     pub form_data: FormData,
     pub editing_host: Option<String>,
-    
+
     // 滚动状态管理
     pub scroll_manager: ScrollManager,
 }
@@ -78,16 +78,27 @@ impl FormManager {
     /// - `global_proxy`: 全局代理配置
     pub fn start_proxy_config(&mut self, global_proxy: &ProxyConfig) {
         self.form_data = FormData::new();
-        self.form_data.data.insert("global_proxy_type".to_string(), format!("{:?}", global_proxy.proxy_type));
-        self.form_data.data.insert("global_proxy_host".to_string(), global_proxy.host.clone());
+        self.form_data.data.insert(
+            "global_proxy_type".to_string(),
+            format!("{:?}", global_proxy.proxy_type),
+        );
+        self.form_data
+            .data
+            .insert("global_proxy_host".to_string(), global_proxy.host.clone());
         if let Some(port) = global_proxy.port {
-            self.form_data.data.insert("global_proxy_port".to_string(), port.to_string());
+            self.form_data
+                .data
+                .insert("global_proxy_port".to_string(), port.to_string());
         }
         if let Some(username) = &global_proxy.username {
-            self.form_data.data.insert("global_proxy_username".to_string(), username.clone());
+            self.form_data
+                .data
+                .insert("global_proxy_username".to_string(), username.clone());
         }
         if let Some(password) = &global_proxy.password {
-            self.form_data.data.insert("global_proxy_password".to_string(), password.clone());
+            self.form_data
+                .data
+                .insert("global_proxy_password".to_string(), password.clone());
         }
         // 重置字段索引和光标位置
         self.form_data.current_field = 0;
@@ -101,8 +112,11 @@ impl FormManager {
     pub fn create_proxy_config(&self) -> Result<ProxyConfig, String> {
         // 验证全局代理配置
         self.form_data.validate_global_proxy()?;
-        
-        let proxy_type = self.form_data.data.get("global_proxy_type")
+
+        let proxy_type = self
+            .form_data
+            .data
+            .get("global_proxy_type")
             .map(|t| match t.as_str() {
                 "Socks5" => ProxyType::Socks5,
                 "Http" => ProxyType::Http,
@@ -110,18 +124,30 @@ impl FormManager {
             })
             .unwrap_or(ProxyType::None);
 
-        let host = self.form_data.data.get("global_proxy_host")
+        let host = self
+            .form_data
+            .data
+            .get("global_proxy_host")
             .cloned()
             .unwrap_or_default();
 
-        let port = self.form_data.data.get("global_proxy_port")
+        let port = self
+            .form_data
+            .data
+            .get("global_proxy_port")
             .and_then(|p| p.parse::<u16>().ok());
 
-        let username = self.form_data.data.get("global_proxy_username")
+        let username = self
+            .form_data
+            .data
+            .get("global_proxy_username")
             .filter(|u| !u.is_empty())
             .cloned();
 
-        let password = self.form_data.data.get("global_proxy_password")
+        let password = self
+            .form_data
+            .data
+            .get("global_proxy_password")
             .filter(|p| !p.is_empty())
             .cloned();
 
@@ -138,14 +164,16 @@ impl FormManager {
     /// 移动到下一个字段
     pub fn next_field(&mut self) {
         self.form_data.next_field();
-        self.scroll_manager.set_selected_index(self.form_data.current_field);
+        self.scroll_manager
+            .set_selected_index(self.form_data.current_field);
         self.scroll_manager.update_scroll_position();
     }
 
     /// 移动到上一个字段
     pub fn previous_field(&mut self) {
         self.form_data.previous_field();
-        self.scroll_manager.set_selected_index(self.form_data.current_field);
+        self.scroll_manager
+            .set_selected_index(self.form_data.current_field);
         self.scroll_manager.update_scroll_position();
     }
 
@@ -237,7 +265,8 @@ impl FormManager {
 
     /// 更新滚动位置，确保当前字段在可视区域内
     pub fn update_scroll_position(&mut self) {
-        self.scroll_manager.set_selected_index(self.form_data.current_field);
+        self.scroll_manager
+            .set_selected_index(self.form_data.current_field);
         self.scroll_manager.update_scroll_position();
     }
 
@@ -248,5 +277,4 @@ impl FormManager {
     pub fn get_scroll_info(&self) -> (usize, usize, usize) {
         self.scroll_manager.get_scroll_info()
     }
-
 }

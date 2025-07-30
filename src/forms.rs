@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-use crate::config::{SSHConfig, PortForward};
+use crate::config::{PortForward, SSHConfig};
 use crate::proxy::{ProxyConfig, ProxyType};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FormField {
@@ -58,9 +58,11 @@ impl FormField {
     /// # 返回
     /// 返回 true 表示是文本输入，false 表示是特殊控件
     pub fn is_text_input(&self) -> bool {
-        !matches!(self, FormField::PortForwardEnabled | FormField::UseGlobalProxy | FormField::GlobalProxyType)
+        !matches!(
+            self,
+            FormField::PortForwardEnabled | FormField::UseGlobalProxy | FormField::GlobalProxyType
+        )
     }
-
 
     /// 获取 SSH 配置编辑字段列表
     ///
@@ -116,16 +118,16 @@ impl FormData {
         data.insert("pf_enabled".to_string(), "false".to_string());
         data.insert("use_global_proxy".to_string(), "true".to_string());
         data.insert("proxy_enabled".to_string(), "false".to_string());
-        
+
         let mut form_data = Self {
             data,
             current_field: 0,
             cursor_position: 0,
         };
-        
+
         // 确保字段索引在有效范围内
         form_data.ensure_field_index_valid();
-        
+
         form_data
     }
 
@@ -138,51 +140,76 @@ impl FormData {
     /// 返回填充了配置数据的表单数据
     pub fn from_config(config: &SSHConfig) -> Self {
         let mut form_data = Self::new();
-        
-        form_data.data.insert("alias".to_string(), config.alias.clone());
-        form_data.data.insert("address".to_string(), config.address.clone());
-        
+
+        form_data
+            .data
+            .insert("alias".to_string(), config.alias.clone());
+        form_data
+            .data
+            .insert("address".to_string(), config.address.clone());
+
         if let Some(port) = config.port {
             form_data.data.insert("port".to_string(), port.to_string());
         }
-        
+
         if let Some(user) = &config.user {
             form_data.data.insert("user".to_string(), user.clone());
         }
-        
+
         if let Some(key) = &config.key {
             form_data.data.insert("key".to_string(), key.clone());
         }
-        
+
         if let Some(pf) = &config.port_forward {
-            form_data.data.insert("pf_enabled".to_string(), pf.enabled.to_string());
-            form_data.data.insert("pf_local".to_string(), pf.local.clone());
-            form_data.data.insert("pf_remote".to_string(), pf.remote.clone());
+            form_data
+                .data
+                .insert("pf_enabled".to_string(), pf.enabled.to_string());
+            form_data
+                .data
+                .insert("pf_local".to_string(), pf.local.clone());
+            form_data
+                .data
+                .insert("pf_remote".to_string(), pf.remote.clone());
         }
-        
-        form_data.data.insert("use_global_proxy".to_string(), config.use_global_proxy.to_string());
-        
+
+        form_data.data.insert(
+            "use_global_proxy".to_string(),
+            config.use_global_proxy.to_string(),
+        );
+
         if let Some(proxy) = &config.proxy {
-            form_data.data.insert("proxy_enabled".to_string(), "true".to_string());
-            form_data.data.insert("proxy_type".to_string(), format!("{:?}", proxy.proxy_type));
-            form_data.data.insert("proxy_host".to_string(), proxy.host.clone());
-            
+            form_data
+                .data
+                .insert("proxy_enabled".to_string(), "true".to_string());
+            form_data
+                .data
+                .insert("proxy_type".to_string(), format!("{:?}", proxy.proxy_type));
+            form_data
+                .data
+                .insert("proxy_host".to_string(), proxy.host.clone());
+
             if let Some(port) = proxy.port {
-                form_data.data.insert("proxy_port".to_string(), port.to_string());
+                form_data
+                    .data
+                    .insert("proxy_port".to_string(), port.to_string());
             }
-            
+
             if let Some(username) = &proxy.username {
-                form_data.data.insert("proxy_username".to_string(), username.clone());
+                form_data
+                    .data
+                    .insert("proxy_username".to_string(), username.clone());
             }
-            
+
             if let Some(password) = &proxy.password {
-                form_data.data.insert("proxy_password".to_string(), password.clone());
+                form_data
+                    .data
+                    .insert("proxy_password".to_string(), password.clone());
             }
         }
-        
+
         // 确保字段索引在有效范围内
         form_data.ensure_field_index_valid();
-        
+
         form_data
     }
 
@@ -212,10 +239,14 @@ impl FormData {
     /// 返回当前字段枚举
     pub fn get_current_field(&self) -> FormField {
         if self.is_global_proxy_mode() {
-            FormField::global_proxy_fields().get(self.current_field).cloned()
+            FormField::global_proxy_fields()
+                .get(self.current_field)
+                .cloned()
                 .unwrap_or(FormField::GlobalProxyType)
         } else {
-            FormField::ssh_config_fields().get(self.current_field).cloned()
+            FormField::ssh_config_fields()
+                .get(self.current_field)
+                .cloned()
                 .unwrap_or(FormField::Alias)
         }
     }
@@ -357,34 +388,49 @@ impl FormData {
         let field = self.get_current_field();
         if matches!(field, FormField::UseGlobalProxy) {
             let use_global_proxy = self.get(&FormField::UseGlobalProxy).to_lowercase() == "true";
-            let proxy_enabled = self.data.get("proxy_enabled")
+            let proxy_enabled = self
+                .data
+                .get("proxy_enabled")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false);
-            let proxy_type = self.data.get("proxy_type").map(|t| t.as_str()).unwrap_or("None");
+            let proxy_type = self
+                .data
+                .get("proxy_type")
+                .map(|t| t.as_str())
+                .unwrap_or("None");
 
             // 状态循环: 全局代理 -> 不使用代理 -> SOCKS5代理 -> HTTP代理 -> 全局代理
             if use_global_proxy {
                 // 全局代理 -> 不使用代理
                 self.set(&FormField::UseGlobalProxy, "false".to_string());
-                self.data.insert("proxy_enabled".to_string(), "false".to_string());
-                self.data.insert("proxy_type".to_string(), "None".to_string());
+                self.data
+                    .insert("proxy_enabled".to_string(), "false".to_string());
+                self.data
+                    .insert("proxy_type".to_string(), "None".to_string());
             } else if !proxy_enabled || proxy_type == "None" {
                 // 不使用代理 -> SOCKS5代理
-                self.data.insert("proxy_enabled".to_string(), "true".to_string());
-                self.data.insert("proxy_type".to_string(), "Socks5".to_string());
+                self.data
+                    .insert("proxy_enabled".to_string(), "true".to_string());
+                self.data
+                    .insert("proxy_type".to_string(), "Socks5".to_string());
             } else if proxy_type == "Socks5" {
                 // SOCKS5代理 -> HTTP代理
-                self.data.insert("proxy_type".to_string(), "Http".to_string());
+                self.data
+                    .insert("proxy_type".to_string(), "Http".to_string());
             } else if proxy_type == "Http" {
                 // HTTP代理 -> 全局代理
                 self.set(&FormField::UseGlobalProxy, "true".to_string());
-                self.data.insert("proxy_enabled".to_string(), "false".to_string());
-                self.data.insert("proxy_type".to_string(), "None".to_string());
+                self.data
+                    .insert("proxy_enabled".to_string(), "false".to_string());
+                self.data
+                    .insert("proxy_type".to_string(), "None".to_string());
             } else {
                 // 默认回到全局代理
                 self.set(&FormField::UseGlobalProxy, "true".to_string());
-                self.data.insert("proxy_enabled".to_string(), "false".to_string());
-                self.data.insert("proxy_type".to_string(), "None".to_string());
+                self.data
+                    .insert("proxy_enabled".to_string(), "false".to_string());
+                self.data
+                    .insert("proxy_type".to_string(), "None".to_string());
             }
         }
     }
@@ -397,55 +443,59 @@ impl FormData {
         let alias = self.get(&FormField::Alias);
         let address = self.get(&FormField::Address);
         let port_str = self.get(&FormField::Port);
-        
+
         // 基本信息验证
         if alias.is_empty() {
             return Err("主机别名不能为空".to_string());
         }
-        
+
         if address.is_empty() {
             return Err("连接地址不能为空".to_string());
         }
-        
+
         if !port_str.is_empty() {
-            let port: u16 = port_str.parse()
+            let port: u16 = port_str
+                .parse()
                 .map_err(|_| "端口必须是1-65535之间的有效数字".to_string())?;
             if port == 0 {
                 return Err("端口必须是1-65535之间的有效数字".to_string());
             }
         }
-        
+
         // 端口转发验证
         let pf_enabled = self.get(&FormField::PortForwardEnabled).to_lowercase() == "true";
         if pf_enabled {
             let local = self.get(&FormField::PortForwardLocal);
             let remote = self.get(&FormField::PortForwardRemote);
-            
+
             if local.is_empty() {
                 return Err("启用端口转发时，本地端口不能为空".to_string());
             }
-            
+
             if remote.is_empty() {
                 return Err("启用端口转发时，远程端口不能为空".to_string());
             }
         }
-        
+
         // 代理配置验证
         let use_global_proxy = self.get(&FormField::UseGlobalProxy).to_lowercase() == "true";
         if !use_global_proxy {
-            let proxy_enabled = self.data.get("proxy_enabled")
+            let proxy_enabled = self
+                .data
+                .get("proxy_enabled")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false);
             if proxy_enabled {
                 let proxy_host = self.get(&FormField::ProxyHost);
                 let proxy_port_str = self.get(&FormField::ProxyPort);
-                
+
                 if proxy_host.is_empty() {
                     return Err("代理主机不能为空".to_string());
                 }
-                
+
                 if !proxy_port_str.is_empty() {
-                    let proxy_port: u16 = proxy_port_str.parse()
+                    let proxy_port: u16 = proxy_port_str
+                        .parse()
                         .map_err(|_| "代理端口必须是1-65535之间的有效数字".to_string())?;
                     if proxy_port == 0 {
                         return Err("代理端口必须是1-65535之间的有效数字".to_string());
@@ -455,7 +505,7 @@ impl FormData {
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -467,29 +517,30 @@ impl FormData {
         let proxy_type = self.get(&FormField::GlobalProxyType);
         let proxy_host = self.get(&FormField::GlobalProxyHost);
         let proxy_port_str = self.get(&FormField::GlobalProxyPort);
-        
+
         // 代理类型验证
         if proxy_type.is_empty() {
             return Err("代理类型不能为空".to_string());
         }
-        
+
         // 如果选择了代理类型，则主机和端口必填
         if proxy_type != "None" {
             if proxy_host.is_empty() {
                 return Err("代理主机不能为空".to_string());
             }
-            
+
             if proxy_port_str.is_empty() {
                 return Err("代理端口不能为空".to_string());
             }
-            
-            let proxy_port: u16 = proxy_port_str.parse()
+
+            let proxy_port: u16 = proxy_port_str
+                .parse()
                 .map_err(|_| "代理端口必须是1-65535之间的有效数字".to_string())?;
             if proxy_port == 0 {
                 return Err("代理端口必须是1-65535之间的有效数字".to_string());
             }
         }
-        
+
         Ok(())
     }
 
@@ -520,7 +571,7 @@ impl FormData {
     /// 返回 Result，成功为 SSHConfig，失败为包含错误信息的 Err
     pub fn to_ssh_config(&self) -> Result<SSHConfig, String> {
         self.validate()?;
-        
+
         let alias = self.get(&FormField::Alias);
         let address = self.get(&FormField::Address);
         let port = self.get(&FormField::Port).parse::<u16>().ok();
@@ -554,12 +605,16 @@ impl FormData {
 
         let use_global_proxy = self.get(&FormField::UseGlobalProxy).to_lowercase() == "true";
         let proxy = if !use_global_proxy {
-            let proxy_enabled = self.data.get("proxy_enabled")
+            let proxy_enabled = self
+                .data
+                .get("proxy_enabled")
                 .map(|v| v.to_lowercase() == "true")
                 .unwrap_or(false);
 
             if proxy_enabled {
-                let proxy_type = self.data.get("proxy_type")
+                let proxy_type = self
+                    .data
+                    .get("proxy_type")
                     .map(|t| match t.as_str() {
                         "Socks5" => ProxyType::Socks5,
                         "Http" => ProxyType::Http,

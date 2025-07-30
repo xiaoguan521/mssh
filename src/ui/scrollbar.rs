@@ -1,15 +1,12 @@
-use ratatui::{
-    prelude::*,
-    widgets::*,
-};
+use ratatui::{prelude::*, widgets::*};
 
 /// 统一的滚动状态管理器
 #[derive(Debug, Clone)]
 pub struct ScrollManager {
-    pub scroll_offset: usize,    // 当前滚动偏移量
-    pub visible_items: usize,    // 可视区域能显示的项目数量
-    pub total_items: usize,      // 总项目数量
-    pub selected_index: usize,   // 当前选中项索引
+    pub scroll_offset: usize,  // 当前滚动偏移量
+    pub visible_items: usize,  // 可视区域能显示的项目数量
+    pub total_items: usize,    // 总项目数量
+    pub selected_index: usize, // 当前选中项索引
 }
 
 impl ScrollManager {
@@ -89,7 +86,7 @@ impl ScrollManager {
         } else {
             0
         };
-        
+
         if self.scroll_offset > max_scroll_offset {
             self.scroll_offset = max_scroll_offset;
         }
@@ -113,22 +110,17 @@ impl ScrollManager {
 /// 渲染滚动条
 pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManager) {
     let (scroll_offset, visible_items, total_items) = scroll_manager.get_scroll_info();
-    
+
     if total_items <= visible_items {
         return;
     }
 
     // 计算滚动条区域（右侧边栏）
-    let scrollbar_area = Rect::new(
-        area.right().saturating_sub(1),
-        area.y,
-        1,
-        area.height,
-    );
+    let scrollbar_area = Rect::new(area.right().saturating_sub(1), area.y, 1, area.height);
 
     // 计算最大滚动偏移量
     let max_scroll_offset = total_items - visible_items;
-    
+
     // 确保滚动偏移量不超过最大值
     let adjusted_scroll_offset = std::cmp::min(scroll_offset, max_scroll_offset);
 
@@ -159,7 +151,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //     F: FnMut(&mut Frame, Rect, usize),
 // {
 //     let (scroll_offset, visible_items, _total_items) = scroll_manager.get_scroll_info();
-    
+
 //     let mut current_y = area.y;
 //     let mut rendered_items = 0;
 
@@ -167,12 +159,12 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //     for (section_start, section_title, section_item_count) in sections {
 //         // 检查这个段落是否在可视区域内
 //         let section_end = section_start + section_item_count;
-        
+
 //         if section_end <= scroll_offset {
 //             // 整个段落在可视区域上方，跳过
 //             continue;
 //         }
-        
+
 //         if section_start >= scroll_offset + visible_items {
 //             // 整个段落在可视区域下方，跳过
 //             break;
@@ -181,7 +173,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //         // 计算段落在可视区域内的项目
 //         let visible_start = std::cmp::max(section_start, scroll_offset);
 //         let visible_end = std::cmp::min(section_end, scroll_offset + visible_items);
-        
+
 //         // 渲染段落标题（如果段落开头在可视区域内）
 //         if section_start >= scroll_offset {
 //             let title_height = 2;
@@ -191,7 +183,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //                 area.width,
 //                 title_height,
 //             );
-            
+
 //             let title_block = Block::default()
 //                 .borders(Borders::NONE)
 //                 .title(
@@ -201,7 +193,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //                     )
 //                 )
 //                 .title_alignment(Alignment::Center);
-            
+
 //             f.render_widget(title_block, title_area);
 //             current_y += title_height;
 //         }
@@ -219,7 +211,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //                 area.width,
 //                 item_height,
 //             );
-            
+
 //             render_field(f, item_area, item_index);
 //             current_y += item_height;
 //             rendered_items += 1;
@@ -240,15 +232,15 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //     F: FnMut(&mut Frame, Rect, usize, bool), // 添加选中状态参数
 // {
 //     let (scroll_offset, visible_items, total_items) = scroll_manager.get_scroll_info();
-    
+
 //     for i in 0..visible_items {
 //         if scroll_offset + i >= total_items {
 //             break;
 //         }
-        
+
 //         let item_index = scroll_offset + i;
 //         let is_selected = item_index == scroll_manager.selected_index;
-        
+
 //         let item_height = area.height / visible_items.max(1) as u16;
 //         let item_area = Rect::new(
 //             area.x,
@@ -256,7 +248,7 @@ pub fn render_scrollbar(f: &mut Frame, area: Rect, scroll_manager: &ScrollManage
 //             area.width.saturating_sub(if scroll_manager.needs_scrolling() { 1 } else { 0 }),
 //             item_height,
 //         );
-        
+
 //         render_item(f, item_area, item_index, is_selected);
 //     }
 

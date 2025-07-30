@@ -1,8 +1,5 @@
-use ratatui::{
-    prelude::*,
-    widgets::*,
-};
 use crate::app::App;
+use ratatui::{prelude::*, widgets::*};
 
 /// 渲染导入界面
 ///
@@ -28,7 +25,8 @@ pub fn render_import(f: &mut Frame, area: Rect, app: &mut App) {
 
     f.render_widget(info, chunks[0]);
 
-    let items: Vec<ListItem> = app.import_candidates()
+    let items: Vec<ListItem> = app
+        .import_candidates()
         .iter()
         .enumerate()
         .map(|(i, config)| {
@@ -37,7 +35,7 @@ pub fn render_import(f: &mut Frame, area: Rect, app: &mut App) {
             } else {
                 "[ ]"
             };
-            
+
             let content = format!(
                 "{} {} ({}@{}:{})",
                 checkbox,

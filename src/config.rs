@@ -1,27 +1,27 @@
+use crate::proxy::{GlobalConfig, ProxyConfig};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use crate::proxy::{ProxyConfig, GlobalConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PortForward {
     pub enabled: bool,
-    pub local: String,   // "0.0.0.0:4422"
-    pub remote: String,  // "127.0.0.1:22"
+    pub local: String,  // "0.0.0.0:4422"
+    pub remote: String, // "127.0.0.1:22"
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SSHConfig {
-    pub alias: String,      // 主机别名
-    pub address: String,    // 实际连接地址
+    pub alias: String,   // 主机别名
+    pub address: String, // 实际连接地址
     pub port: Option<u16>,
     pub user: Option<String>,
     pub key: Option<String>,
     pub port_forward: Option<PortForward>,
     #[serde(default)]
-    pub proxy: Option<ProxyConfig>,  // 代理配置
+    pub proxy: Option<ProxyConfig>, // 代理配置
     #[serde(default)]
-    pub use_global_proxy: bool,  // 是否使用全局代理
+    pub use_global_proxy: bool, // 是否使用全局代理
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,10 +68,11 @@ impl ConfigManager {
         });
 
         let config_content = fs::read_to_string(&config_path).unwrap_or_default();
-        let config_file: ConfigFile = toml::from_str(&config_content).unwrap_or_else(|_| ConfigFile {
-            global: GlobalConfig::default(),
-            servers: Vec::new(),
-        });
+        let config_file: ConfigFile =
+            toml::from_str(&config_content).unwrap_or_else(|_| ConfigFile {
+                global: GlobalConfig::default(),
+                servers: Vec::new(),
+            });
 
         Ok(Self {
             configs: config_file.servers,
@@ -118,7 +119,7 @@ impl ConfigManager {
         if self.configs.iter().any(|c| c.alias == config.alias) {
             return Err("主机别名已存在".into());
         }
-        
+
         self.configs.push(config);
         self.save_configs()?;
         Ok(())
@@ -132,7 +133,11 @@ impl ConfigManager {
     ///
     /// # 返回
     /// 返回 Result，成功为 Ok(())，失败为 Err
-    pub fn update_config(&mut self, host: &str, config: SSHConfig) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn update_config(
+        &mut self,
+        host: &str,
+        config: SSHConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(index) = self.configs.iter().position(|c| c.alias == host) {
             self.configs[index] = config;
             self.save_configs()?;
@@ -154,7 +159,7 @@ impl ConfigManager {
         self.save_configs()?;
         Ok(())
     }
-    
+
     /// 解析 SSH 配置文件中的 Host 配置
     ///
     /// # 参数
@@ -175,14 +180,14 @@ impl ConfigManager {
             proxy: None,
             use_global_proxy: false,
         };
-        
+
         // 查找该 Host 下的配置
         let lines: Vec<&str> = content.lines().collect();
         let mut in_host_block = false;
-        
+
         for line in lines {
             let line = line.trim();
-            
+
             if line.starts_with("Host ") {
                 if line == host_line {
                     in_host_block = true;
@@ -191,11 +196,11 @@ impl ConfigManager {
                 }
                 continue;
             }
-            
+
             if !in_host_block {
                 continue;
             }
-            
+
             // 解析各种配置项
             if line.starts_with("HostName ") {
                 config.address = line.split_whitespace().nth(1)?.to_string();
@@ -220,7 +225,7 @@ impl ConfigManager {
                 }
             }
         }
-        
+
         Some(config)
     }
 }
@@ -237,51 +242,63 @@ impl TryFrom<toml::Value> for SSHConfig {
     /// 返回 Result，成功为 SSHConfig，失败为 Err
     fn try_from(value: toml::Value) -> Result<Self, Self::Error> {
         let table = value.as_table().ok_or("Expected table")?;
-        
-        let alias = table.get("alias")
+
+        let alias = table
+            .get("alias")
             .and_then(|v| v.as_str())
             .ok_or("缺少主机别名")?
             .to_string();
-            
-        let address = table.get("address")
+
+        let address = table
+            .get("address")
             .and_then(|v| v.as_str())
             .ok_or("缺少实际连接地址")?
             .to_string();
-            
-        let port = table.get("port")
+
+        let port = table
+            .get("port")
             .and_then(|v| v.as_integer())
             .map(|p| p as u16);
-            
-        let user = table.get("user")
+
+        let user = table
+            .get("user")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-            
-        let key = table.get("key")
+
+        let key = table
+            .get("key")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-            
+
         let port_forward = if let Some(pf_value) = table.get("port_forward") {
             if let Some(pf_table) = pf_value.as_table() {
-                let enabled = pf_table.get("enabled")
+                let enabled = pf_table
+                    .get("enabled")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                let local = pf_table.get("local")
+                let local = pf_table
+                    .get("local")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                let remote = pf_table.get("remote")
+                let remote = pf_table
+                    .get("remote")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                    
-                Some(PortForward { enabled, local, remote })
+
+                Some(PortForward {
+                    enabled,
+                    local,
+                    remote,
+                })
             } else {
                 None
             }
         } else {
             None
         };
-        
+
         Ok(SSHConfig {
             alias,
             address,

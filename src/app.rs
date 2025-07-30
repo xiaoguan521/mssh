@@ -1,8 +1,8 @@
 use crate::config::{ConfigManager, SSHConfig};
-use crate::ssh::SSHManager;
 use crate::form_manager::FormManager;
 use crate::message_manager::MessageManager;
-use crate::navigation_manager::{NavigationManager, AppMode};
+use crate::navigation_manager::{AppMode, NavigationManager};
+use crate::ssh::SSHManager;
 
 pub use crate::message_manager::Message;
 
@@ -26,7 +26,7 @@ impl App {
     pub fn new(config_path: Option<String>) -> Result<Self, Box<dyn std::error::Error>> {
         let config_manager = ConfigManager::new(config_path)?;
         let ssh_manager = SSHManager::new(config_manager.global_config.clone());
-        
+
         Ok(Self {
             config_manager,
             ssh_manager,
@@ -154,7 +154,7 @@ impl App {
     /// 返回 Result，成功为 Ok(())，失败为 Err
     pub fn save_config(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let config = self.form_manager.validate_and_create_config()?;
-    
+
         let result = if self.form_manager.is_editing() {
             if let Some(editing_host) = self.form_manager.get_editing_host() {
                 self.config_manager.update_config(editing_host, config)
@@ -164,11 +164,11 @@ impl App {
         } else {
             self.config_manager.add_config(config)
         };
-    
+
         result?;
         self.navigation.return_to_list();
         self.form_manager.clear();
-    
+
         Ok(())
     }
 
@@ -201,7 +201,9 @@ impl App {
     /// # 返回
     /// 返回 Result，成功为 Ok(())，失败为 Err
     pub fn connect_selected(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let valid_index = self.navigation.get_valid_selected_index(self.config_manager.configs.len());
+        let valid_index = self
+            .navigation
+            .get_valid_selected_index(self.config_manager.configs.len());
         if valid_index < self.config_manager.configs.len() {
             let config = self.config_manager.configs[valid_index].clone();
             self.ssh_manager.global_config = self.config_manager.global_config.clone();
@@ -218,8 +220,10 @@ impl App {
         if self.config_manager.configs.is_empty() {
             return None;
         }
-        
-        let valid_index = self.navigation.get_valid_selected_index(self.config_manager.configs.len());
+
+        let valid_index = self
+            .navigation
+            .get_valid_selected_index(self.config_manager.configs.len());
         self.config_manager.configs.get(valid_index)
     }
 
@@ -293,7 +297,7 @@ impl App {
     pub fn show_import_selection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let content = std::fs::read_to_string(format!("{}/.ssh/config", std::env::var("HOME")?))?;
         let mut candidates = Vec::new();
-        
+
         for line in content.lines() {
             let line = line.trim();
             if line.starts_with("Host ") {
@@ -302,35 +306,39 @@ impl App {
                 }
             }
         }
-        
+
         candidates.retain(|host| {
-            !self.config_manager.configs.iter().any(|c| c.alias == host.alias)
+            !self
+                .config_manager
+                .configs
+                .iter()
+                .any(|c| c.alias == host.alias)
         });
-        
+
         self.navigation.start_import(candidates);
         Ok(())
     }
-    
+
     /// 导入界面下一个项目
     pub fn import_next(&mut self) {
         self.navigation.import_next();
     }
-    
+
     /// 导入界面上一个项目
     pub fn import_previous(&mut self) {
         self.navigation.import_previous();
     }
-    
+
     /// 切换导入选择状态
     pub fn toggle_import_selection(&mut self) {
         self.navigation.toggle_import_selection();
     }
-    
+
     /// 切换所有导入选择状态
     pub fn toggle_all_import_selection(&mut self) {
         self.navigation.toggle_all_import_selection();
     }
-    
+
     /// 确认导入
     ///
     /// # 返回
@@ -338,21 +346,21 @@ impl App {
     pub fn confirm_import(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let selected_configs = self.navigation.get_selected_imports();
         let mut imported_count = 0;
-    
+
         for config in selected_configs {
             self.config_manager.add_config(config)?; // 出错自动返回 Err
             imported_count += 1;
         }
-    
+
         self.navigation.return_to_list();
-    
+
         if imported_count == 0 {
             return Err("未选择任何可导入的配置".into());
         }
-    
+
         Ok(())
     }
-    
+
     /// 取消导入
     pub fn cancel_import(&mut self) {
         self.navigation.cancel_import();
@@ -374,10 +382,15 @@ impl App {
                 self.ssh_manager.connect(config)?;
                 return Ok(());
             } else {
-                return Err(format!("编号 {} 超出范围 (1-{})", index, self.config_manager.configs.len()).into());
+                return Err(format!(
+                    "编号 {} 超出范围 (1-{})",
+                    index,
+                    self.config_manager.configs.len()
+                )
+                .into());
             }
         }
-        
+
         for (i, config) in self.config_manager.configs.iter().enumerate() {
             if config.alias == target {
                 println!("正在连接到 {} (编号: {})", config.alias, i + 1);
@@ -385,16 +398,17 @@ impl App {
                 return Ok(());
             }
         }
-        
+
         let mut matches = Vec::new();
         for (i, config) in self.config_manager.configs.iter().enumerate() {
-            if config.alias.contains(target) || 
-               config.address.contains(target) ||
-               config.user.as_ref().map_or(false, |u| u.contains(target)) {
+            if config.alias.contains(target)
+                || config.address.contains(target)
+                || config.user.as_ref().map_or(false, |u| u.contains(target))
+            {
                 matches.push((i + 1, config));
             }
         }
-        
+
         if matches.len() == 1 {
             let (index, config) = matches[0];
             println!("正在连接到 {} (编号: {})", config.alias, index);
@@ -407,7 +421,7 @@ impl App {
             }
             return Err("请使用更具体的编号或别名".into());
         }
-        
+
         Err(format!("未找到匹配的配置: {}", target).into())
     }
 
@@ -440,6 +454,4 @@ impl App {
     pub fn import_selected_index(&self) -> usize {
         self.navigation.import_manager.selected_index
     }
-
-
 }

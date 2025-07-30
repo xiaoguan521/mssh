@@ -1,8 +1,5 @@
-use ratatui::{
-    prelude::*,
-    widgets::*,
-};
 use crate::app::App;
+use ratatui::{prelude::*, widgets::*};
 
 /// 渲染代理配置界面
 ///
@@ -46,9 +43,16 @@ pub fn render_proxy_config(f: &mut Frame, area: Rect, app: &mut App) {
 /// - `field_name`: 字段名
 /// - `app`: 应用状态
 /// - `field_index`: 字段索引
-fn render_proxy_field(f: &mut Frame, area: Rect, label: &str, field_name: &str, app: &mut App, field_index: usize) {
+fn render_proxy_field(
+    f: &mut Frame,
+    area: Rect,
+    label: &str,
+    field_name: &str,
+    app: &mut App,
+    field_index: usize,
+) {
     let is_focused = app.current_field() == field_index;
-    
+
     let value = app.form_data().get(field_name).cloned().unwrap_or_default();
     let display_value = if field_name.contains("password") {
         if is_focused && !value.is_empty() {
@@ -61,25 +65,21 @@ fn render_proxy_field(f: &mut Frame, area: Rect, label: &str, field_name: &str, 
     } else {
         value
     };
-    let input = Paragraph::new(display_value)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(label)
-                .border_style(if is_focused {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                })
-        );
+    let input = Paragraph::new(display_value).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(label)
+            .border_style(if is_focused {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default()
+            }),
+    );
 
     f.render_widget(input, area);
-    
+
     if is_focused {
-        f.set_cursor(
-            area.x + app.cursor_position() as u16 + 1,
-            area.y + 1,
-        );
+        f.set_cursor(area.x + app.cursor_position() as u16 + 1, area.y + 1);
     }
 }
 
@@ -92,7 +92,9 @@ fn render_proxy_field(f: &mut Frame, area: Rect, label: &str, field_name: &str, 
 /// - `field_index`: 字段索引
 fn render_proxy_type_field(f: &mut Frame, area: Rect, app: &mut App, field_index: usize) {
     let is_focused = app.current_field() == field_index;
-    let proxy_type = app.form_data().get("global_proxy_type")
+    let proxy_type = app
+        .form_data()
+        .get("global_proxy_type")
         .map(|t| t.as_str())
         .unwrap_or("None");
 
@@ -101,18 +103,17 @@ fn render_proxy_type_field(f: &mut Frame, area: Rect, app: &mut App, field_index
         "Http" => "HTTP",
         _ => "无代理",
     };
-    
-    let type_field = Paragraph::new(type_text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("代理类型 (空格切换)")
-                .border_style(if is_focused {
-                    Style::default().fg(Color::Yellow)
-                } else {
-                    Style::default()
-                })
-        );
+
+    let type_field = Paragraph::new(type_text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("代理类型 (空格切换)")
+            .border_style(if is_focused {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default()
+            }),
+    );
 
     f.render_widget(type_field, area);
 }

@@ -1,8 +1,5 @@
-use ratatui::{
-    prelude::*,
-    widgets::*,
-};
 use crate::app::App;
+use ratatui::{prelude::*, widgets::*};
 
 /// 渲染对话框
 ///
@@ -13,10 +10,17 @@ use crate::app::App;
 /// - `title`: 对话框标题
 /// - `message`: 对话框消息
 /// - `buttons`: 按钮列表
-pub fn render_dialog(f: &mut Frame, area: Rect, app: &mut App, _title: &str, _message: &str, _buttons: &[&str]) {
+pub fn render_dialog(
+    f: &mut Frame,
+    area: Rect,
+    app: &mut App,
+    _title: &str,
+    _message: &str,
+    _buttons: &[&str],
+) {
     let popup_area = centered_rect(50, 10, area);
     // 当前暂不使用 title, message, buttons 参数
-    
+
     let dialog_text = if let Some(config) = app.get_selected_config() {
         format!("确定要删除配置 '{}' 吗？", config.alias)
     } else {
@@ -25,17 +29,17 @@ pub fn render_dialog(f: &mut Frame, area: Rect, app: &mut App, _title: &str, _me
 
     // 将对话框文字加粗显示
     let dialog = Paragraph::new(Span::styled(
-            dialog_text,
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-        ))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("确认删除")
-                .border_style(Style::default().fg(Color::LightRed))
-        )
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
+        dialog_text,
+        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+    ))
+    .block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("确认删除")
+            .border_style(Style::default().fg(Color::LightRed)),
+    )
+    .alignment(Alignment::Center)
+    .wrap(Wrap { trim: true });
 
     f.render_widget(Clear, popup_area);
     f.render_widget(dialog, popup_area);
