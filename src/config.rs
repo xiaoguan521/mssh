@@ -44,11 +44,7 @@ impl ConfigManager {
     /// # 返回
     /// 返回配置目录路径，如果无法获取则返回 None
     fn get_config_dir() -> Option<PathBuf> {
-        if let Some(home) = dirs::home_dir() {
-            Some(home.join(".mssh"))
-        } else {
-            None
-        }
+        dirs::home_dir().map(|home| home.join(".mssh"))
     }
 
     /// 创建新的配置管理器
@@ -67,7 +63,7 @@ impl ConfigManager {
             }
         });
 
-        let config_content = fs::read_to_string(&config_path).unwrap_or_default();
+        let config_content = fs::read_to_string(config_path).unwrap_or_default();
         let config_file: ConfigFile =
             toml::from_str(&config_content).unwrap_or_else(|_| ConfigFile {
                 global: GlobalConfig::default(),

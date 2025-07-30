@@ -409,17 +409,21 @@ impl App {
             }
         }
 
-        if matches.len() == 1 {
-            let (index, config) = matches[0];
-            println!("正在连接到 {} (编号: {})", config.alias, index);
-            self.ssh_manager.connect(config)?;
-            return Ok(());
-        } else if matches.len() > 1 {
-            println!("找到多个匹配的配置:");
-            for (index, config) in matches {
-                println!("  {}: {} ({})", index, config.alias, config.address);
+        match matches.len() {
+            1 => {
+                let (index, config) = matches[0];
+                println!("正在连接到 {} (编号: {})", config.alias, index);
+                self.ssh_manager.connect(config)?;
+                return Ok(());
             }
-            return Err("请使用更具体的编号或别名".into());
+            n if n > 1 => {
+                println!("找到多个匹配的配置:");
+                for (index, config) in matches {
+                    println!("  {}: {} ({})", index, config.alias, config.address);
+                }
+                return Err("请使用更具体的编号或别名".into());
+            }
+            _ => {}
         }
 
         Err(format!("未找到匹配的配置: {}", target).into())

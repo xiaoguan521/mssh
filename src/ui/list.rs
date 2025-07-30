@@ -42,7 +42,7 @@ fn render_config_list(f: &mut Frame, area: Rect, app: &mut App) {
         .map(|(i, config)| {
             let proxy_info = if config.use_global_proxy {
                 if app.config_manager.global_config.proxy.is_enabled() {
-                    format!(" [全局代理]")
+                    " [全局代理]".to_string()
                 } else {
                     String::new()
                 }

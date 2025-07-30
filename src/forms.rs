@@ -374,12 +374,9 @@ impl FormData {
     /// 切换复选框状态（端口转发启用/禁用）
     pub fn toggle_checkbox(&mut self) {
         let field = self.get_current_field();
-        match field {
-            FormField::PortForwardEnabled => {
-                let current = self.get(&field).to_lowercase() == "true";
-                self.set(&field, (!current).to_string());
-            }
-            _ => {}
+        if field == FormField::PortForwardEnabled {
+            let current = self.get(&field).to_lowercase() == "true";
+            self.set(&field, (!current).to_string());
         }
     }
 
@@ -417,15 +414,8 @@ impl FormData {
                 // SOCKS5代理 -> HTTP代理
                 self.data
                     .insert("proxy_type".to_string(), "Http".to_string());
-            } else if proxy_type == "Http" {
-                // HTTP代理 -> 全局代理
-                self.set(&FormField::UseGlobalProxy, "true".to_string());
-                self.data
-                    .insert("proxy_enabled".to_string(), "false".to_string());
-                self.data
-                    .insert("proxy_type".to_string(), "None".to_string());
             } else {
-                // 默认回到全局代理
+                // HTTP代理 -> 全局代理 (或默认回到全局代理)
                 self.set(&FormField::UseGlobalProxy, "true".to_string());
                 self.data
                     .insert("proxy_enabled".to_string(), "false".to_string());
