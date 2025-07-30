@@ -403,7 +403,7 @@ impl App {
         for (i, config) in self.config_manager.configs.iter().enumerate() {
             if config.alias.contains(target)
                 || config.address.contains(target)
-                || config.user.as_ref().map_or(false, |u| u.contains(target))
+                || config.user.as_ref().is_some_and(|u| u.contains(target))
             {
                 matches.push((i + 1, config));
             }
@@ -426,7 +426,7 @@ impl App {
             _ => {}
         }
 
-        Err(format!("未找到匹配的配置: {}", target).into())
+        Err(format!("未找到匹配的配置: {target}").into())
     }
 
     /// 检查并清理过期消息

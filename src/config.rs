@@ -185,11 +185,7 @@ impl ConfigManager {
             let line = line.trim();
 
             if line.starts_with("Host ") {
-                if line == host_line {
-                    in_host_block = true;
-                } else {
-                    in_host_block = false;
-                }
+                in_host_block = line == host_line;
                 continue;
             }
 

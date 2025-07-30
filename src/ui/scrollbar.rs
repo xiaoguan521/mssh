@@ -81,11 +81,7 @@ impl ScrollManager {
         }
 
         // 确保滚动偏移量不超过最大值
-        let max_scroll_offset = if self.total_items > self.visible_items {
-            self.total_items - self.visible_items
-        } else {
-            0
-        };
+        let max_scroll_offset = self.total_items.saturating_sub(self.visible_items);
 
         if self.scroll_offset > max_scroll_offset {
             self.scroll_offset = max_scroll_offset;
