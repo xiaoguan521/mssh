@@ -1,0 +1,194 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: mssh
+            asset_name: mssh-linux-x86_64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact_name: mssh
+            asset_name: mssh-linux-x86_64-musl
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: mssh
+            asset_name: mssh-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: mssh
+            asset_name: mssh-macos-aarch64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
+
+    - name: Cache cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install musl tools (Linux musl only)
+      if: matrix.target == 'x86_64-unknown-linux-musl'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y musl-tools
+
+    - name: Build binary
+      run: |
+        cargo build --release --target ${{ matrix.target }}
+
+    - name: Strip binary (Linux and macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        if command -v strip &> /dev/null; then
+          strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        fi
+
+    - name: Compress binary with UPX (Linux only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        # 安装 UPX
+        sudo apt-get update
+        sudo apt-get install -y upx-ucl
+        
+        # 压缩二进制文件
+        upx --best --lzma target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+
+    - name: Create archive
+      shell: bash
+      run: |
+        cd target/${{ matrix.target }}/release
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          7z a ../../../${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}.exe
+        else
+          tar -czf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.asset_name }}
+        path: |
+          ${{ matrix.asset_name }}.tar.gz
+          ${{ matrix.asset_name }}.zip
+
+    - name: Calculate checksums
+      shell: bash
+      run: |
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          certutil -hashfile ${{ matrix.asset_name }}.zip SHA256 > ${{ matrix.asset_name }}.zip.sha256
+        else
+          shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
+        fi
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        name: Release ${{ github.ref_name }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          ${{ matrix.asset_name }}.tar.gz
+          ${{ matrix.asset_name }}.tar.gz.sha256
+          ${{ matrix.asset_name }}.zip
+          ${{ matrix.asset_name }}.zip.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release-info:
+    name: Create Release Info
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Generate release info
+      run: |
+        echo "# MSSH Release ${{ github.ref_name }}" > release_info.md
+        echo "" >> release_info.md
+        echo "## 📦 安装说明" >> release_info.md
+        echo "" >> release_info.md
+        echo "### Linux x86_64" >> release_info.md
+        echo "\`\`\`bash" >> release_info.md
+        echo "# 下载并安装" >> release_info.md
+        echo "wget https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-linux-x86_64.tar.gz" >> release_info.md
+        echo "tar -xzf mssh-linux-x86_64.tar.gz" >> release_info.md
+        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
+        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
+        echo "\`\`\`" >> release_info.md
+        echo "" >> release_info.md
+        echo "### macOS x86_64 (Intel)" >> release_info.md
+        echo "\`\`\`bash" >> release_info.md
+        echo "# 下载并安装" >> release_info.md
+        echo "wget https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-macos-x86_64.tar.gz" >> release_info.md
+        echo "tar -xzf mssh-macos-x86_64.tar.gz" >> release_info.md
+        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
+        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
+        echo "\`\`\`" >> release_info.md
+        echo "" >> release_info.md
+        echo "### macOS ARM64 (Apple Silicon)" >> release_info.md
+        echo "\`\`\`bash" >> release_info.md
+        echo "# 下载并安装" >> release_info.md
+        echo "wget https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-macos-aarch64.tar.gz" >> release_info.md
+        echo "tar -xzf mssh-macos-aarch64.tar.gz" >> release_info.md
+        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
+        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
+        echo "\`\`\`" >> release_info.md
+        echo "" >> release_info.md
+        echo "## ✨ 功能特性" >> release_info.md
+        echo "- 🚀 SSH 配置管理" >> release_info.md
+        echo "- 🔧 端口转发支持" >> release_info.md
+        echo "- 🌐 代理支持 (SOCKS5/HTTP)" >> release_info.md
+        echo "- 🎨 直观的 TUI 界面" >> release_info.md
+        echo "- ⚡ 快速连接" >> release_info.md
+        echo "" >> release_info.md
+        echo "## 📝 使用方法" >> release_info.md
+        echo "\`\`\`bash" >> release_info.md
+        echo "# 启动 MSSH" >> release_info.md
+        echo "mssh" >> release_info.md
+        echo "" >> release_info.md
+        echo "# 快速连接" >> release_info.md
+        echo "mssh --connect 1" >> release_info.md
+        echo "" >> release_info.md
+        echo "# 导入 SSH 配置" >> release_info.md
+        echo "mssh --import-ssh" >> release_info.md
+        echo "\`\`\`" >> release_info.md
+        echo "" >> release_info.md
+        echo "## 🔐 校验和" >> release_info.md
+        echo "所有发布的二进制文件都附带 SHA256 校验和文件，请在下载后验证文件完整性。" >> release_info.md
+
+    - name: Update release description
+      uses: softprops/action-gh-release@v1
+      with:
+        body_path: release_info.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
