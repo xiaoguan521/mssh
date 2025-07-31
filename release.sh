@@ -213,24 +213,39 @@ cat << EOF
 
 ### 安装方法
 
+### 一键安装（推荐）
+
+\`\`\`bash
+# 安装最新版本
+curl -fsSL https://raw.githubusercontent.com/Caterpolaris/mssh/main/install.sh | bash
+
+# 安装指定版本
+curl -fsSL https://raw.githubusercontent.com/Caterpolaris/mssh/main/install.sh | bash -s $new_version
+\`\`\`
+
+### 手动安装
+
 #### Linux x86_64
 \`\`\`bash
-wget https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-linux-x86_64.tar.gz
+curl -L -o mssh-linux-x86_64.tar.gz https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-linux-x86_64.tar.gz
 tar -xzf mssh-linux-x86_64.tar.gz
 sudo mv mssh /usr/local/bin/
+chmod +x /usr/local/bin/mssh
 \`\`\`
 
 #### macOS
 \`\`\`bash
 # Intel Mac
-wget https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-macos-x86_64.tar.gz
+curl -L -o mssh-macos-x86_64.tar.gz https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-macos-x86_64.tar.gz
 tar -xzf mssh-macos-x86_64.tar.gz
 sudo mv mssh /usr/local/bin/
+chmod +x /usr/local/bin/mssh
 
 # Apple Silicon Mac
-wget https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-macos-aarch64.tar.gz
+curl -L -o mssh-macos-aarch64.tar.gz https://github.com/Caterpolaris/mssh/releases/download/v$new_version/mssh-macos-aarch64.tar.gz
 tar -xzf mssh-macos-aarch64.tar.gz
 sudo mv mssh /usr/local/bin/
+chmod +x /usr/local/bin/mssh
 \`\`\`
 
 EOF
