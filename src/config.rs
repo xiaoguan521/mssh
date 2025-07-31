@@ -63,7 +63,7 @@ impl ConfigManager {
             }
         });
 
-        let config_content = fs::read_to_string(config_path).unwrap_or_default();
+        let config_content = fs::read_to_string(&config_path).unwrap_or_default();
         let config_file: ConfigFile =
             toml::from_str(&config_content).unwrap_or_else(|_| ConfigFile {
                 global: GlobalConfig::default(),
