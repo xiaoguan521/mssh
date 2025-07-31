@@ -14,16 +14,22 @@ jobs:
         include:
           - os: ubuntu-20.04
             arch: x86_64
+            target: x86_64-unknown-linux-gnu
           - os: ubuntu-20.04
             arch: aarch64
+            target: aarch64-unknown-linux-gnu
           - os: macos-latest
             arch: x86_64
+            target: x86_64-apple-darwin
           - os: macos-latest
             arch: aarch64
+            target: aarch64-apple-darwin
           - os: windows-latest
             arch: x86_64
+            target: x86_64-pc-windows-msvc
           - os: windows-latest
             arch: aarch64
+            target: aarch64-pc-windows-msvc
 
     steps:
     - name: Checkout code
@@ -33,11 +39,11 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-        target: ${{ matrix.arch }}-unknown-linux-gnu # This will be ignored on non-linux platforms but is required
+        target: ${{ matrix.target }}
         override: true
 
     - name: Install cross-compilation tools (for aarch64 on x86_64)
-      if: runner.arch == 'x64' && matrix.arch == 'aarch64'
+      if: runner.os == 'Linux' && matrix.arch == 'aarch64'
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-aarch64-linux-gnu
@@ -47,22 +53,8 @@ jobs:
       run: |
         if [ "${{ runner.os }}" == "Linux" ] && [ "${{ matrix.arch }}" == "aarch64" ]; then
             export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
-            cargo build --release --target=aarch64-unknown-linux-gnu
-        elif [ "${{ runner.os }}" == "macOS" ]; then
-             if [ "${{ matrix.arch }}" == "aarch64" ]; then
-                cargo build --release --target=aarch64-apple-darwin
-             else
-                cargo build --release --target=x86_64-apple-darwin
-             fi
-        elif [ "${{ runner.os }}" == "Windows" ]; then
-             if [ "${{ matrix.arch }}" == "aarch64" ]; then
-                cargo build --release --target=aarch64-pc-windows-msvc
-             else
-                cargo build --release --target=x86_64-pc-windows-msvc
-             fi
-        else
-            cargo build --release
         fi
+        cargo build --release --target=${{ matrix.target }}
       shell: bash
 
     - name: Package artifacts
@@ -76,22 +68,17 @@ jobs:
         ARTIFACT_DIR_NAME="mssh-${RELEASE_VERSION}-${OS_NAME}-${{ matrix.arch }}"
         mkdir -p $ARTIFACT_DIR_NAME
 
+        BINARY_EXT=""
         if [ "${{ runner.os }}" == "Windows" ]; then
-            BINARY_PATH="target/${{ matrix.arch }}-pc-windows-msvc/release/mssh.exe"
-            cp "$BINARY_PATH" "${ARTIFACT_DIR_NAME}/mssh.exe"
+            BINARY_EXT=".exe"
+        fi
+        
+        cp "target/${{ matrix.target }}/release/mssh${BINARY_EXT}" "${ARTIFACT_DIR_NAME}/mssh${BINARY_EXT}"
+        
+        if [ "${{ runner.os }}" == "Windows" ]; then
             7z a "${ARTIFACT_DIR_NAME}.zip" "./${ARTIFACT_DIR_NAME}"
             echo "ASSET_NAME=${ARTIFACT_DIR_NAME}.zip" >> $GITHUB_ENV
         else
-            if [ "${{ runner.os }}" == "Linux" ]; then
-              BINARY_PATH="target/aarch64-unknown-linux-gnu/release/mssh"
-            elif [ "${{ runner.os }}" == "macOS" ] && [ "${{ matrix.arch }}" == "aarch64" ]; then
-              BINARY_PATH="target/aarch64-apple-darwin/release/mssh"
-            elif [ "${{ runner.os }}" == "macOS" ] && [ "${{ matrix.arch }}" == "x86_64" ]; then
-              BINARY_PATH="target/x86_64-apple-darwin/release/mssh"
-            else
-              BINARY_PATH="target/release/mssh"
-            fi
-            cp "$BINARY_PATH" "${ARTIFACT_DIR_NAME}/mssh"
             tar -czf "${ARTIFACT_DIR_NAME}.tar.gz" "./${ARTIFACT_DIR_NAME}"
             echo "ASSET_NAME=${ARTIFACT_DIR_NAME}.tar.gz" >> $GITHUB_ENV
         fi
