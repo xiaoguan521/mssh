@@ -1,10 +1,9 @@
 use crossterm::{
     cursor::Show,
     execute,
-    terminal::{disable_raw_mode, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::Write;
-use std::os::unix::process::CommandExt;
 use std::process::Command;
 
 use crate::config::SSHConfig;
@@ -33,23 +32,15 @@ impl SSHManager {
     /// - `config`: SSH 配置
     ///
     /// # 返回
-    /// 返回 Result，成功为 Ok(())，失败为 Err
+    /// 返回 Result，成功为 Ok(()), 失败为 Err
     pub fn connect(&self, config: &SSHConfig) -> Result<(), Box<dyn std::error::Error>> {
-        // 先恢复终端设置，退出 TUI 模式
+        // 恢复终端设置，退出TUI模式
         disable_raw_mode()?;
-        execute!(
-            std::io::stdout(),
-            LeaveAlternateScreen,
-            Show // 显示光标
-        )?;
-
-        // 确保终端设置完全恢复
+        execute!(std::io::stdout(), LeaveAlternateScreen, Show)?;
         std::io::stdout().flush()?;
 
-        // 清屏并显示连接信息
         println!("\x1b[33m正在连接: {}\x1b[0m", config.address);
 
-        // 显示代理信息
         if config.use_global_proxy && self.global_config.proxy.is_enabled() {
             println!(
                 "\x1b[33m全局代理:\x1b[0m {:?} {}:{}",
@@ -78,93 +69,72 @@ impl SSHManager {
             }
         }
 
-        // 显示端口转发信息
         if let Some(pf) = &config.port_forward {
             if pf.enabled {
                 println!("\x1b[33m端口转发:\x1b[0m  {} <->  {}", pf.local, pf.remote);
             }
         }
 
-        // 再次强制刷新
         std::io::stdout().flush()?;
 
-        // 构建 SSH 命令
         let mut cmd = Command::new("ssh");
 
-        // Add port
         if let Some(port) = config.port {
             cmd.arg("-p").arg(port.to_string());
         }
 
-        // Add key
         if let Some(key) = &config.key {
-            cmd.arg("-i").arg(key);
+            let expanded_key = shellexpand::tilde(key).to_string();
+            cmd.arg("-i").arg(expanded_key);
         }
 
-        // Add proxy command
         if config.use_global_proxy {
-            // 使用全局代理
             if let Some(proxy_cmd) = self.global_config.proxy.get_ssh_proxy_command() {
-                cmd.arg("-o").arg(format!("ProxyCommand={proxy_cmd}"));
+                cmd.arg("-o").arg(format!("ProxyCommand={}", proxy_cmd));
             }
         } else if let Some(proxy) = &config.proxy {
-            // 使用自定义代理
             if let Some(proxy_cmd) = proxy.get_ssh_proxy_command() {
-                cmd.arg("-o").arg(format!("ProxyCommand={proxy_cmd}"));
+                cmd.arg("-o").arg(format!("ProxyCommand={}", proxy_cmd));
             }
         }
 
-        // Add port forwarding
         if let Some(pf) = &config.port_forward {
             if pf.enabled {
                 cmd.arg("-L").arg(format!("{}:{}", pf.local, pf.remote));
             }
         }
 
-        // Build connection string
         let connection_string = if let Some(user) = &config.user {
             format!("{}@{}", user, config.address)
         } else {
             config.address.clone()
         };
-
         cmd.arg(connection_string);
 
-        // 需要将cmd转义字符串，否则无法正确执行
         let cmd_str = std::iter::once(cmd.get_program())
             .chain(cmd.get_args())
-            .map(|s| {
-                // 尝试将 OsStr 转为字符串，必要时加引号
-                let s = s.to_string_lossy();
-                if s.contains(' ') || s.contains('"') || s.contains('\'') {
-                    format!("'{}'", s.replace('\'', "'\\''"))
-                } else {
-                    s.to_string()
-                }
-            })
+            .map(|s| s.to_string_lossy().to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        println!("\x1b[33m最终执行命令:\x1b[0m {cmd_str}");
+
+        println!("\x1b[33m最终执行命令:\x1b[0m {}", cmd_str);
         println!("按 Ctrl+C 取消连接\n");
 
-        // Set standard streams
         cmd.stdin(std::process::Stdio::inherit());
         cmd.stdout(std::process::Stdio::inherit());
         cmd.stderr(std::process::Stdio::inherit());
 
-        // 使用 exec 替换当前进程
-        let err = cmd.exec();
+        // 使用 spawn 和 wait 替代 exec，以实现跨平台
+        let status = cmd.spawn()?.wait()?;
 
-        // 如果 exec 失败，确保清理终端设置并显示光标
-        disable_raw_mode()?;
-        execute!(
-            std::io::stdout(),
-            LeaveAlternateScreen,
-            Show // 确保显示光标
-        )?;
-        std::io::stdout().flush()?;
+        // SSH 进程结束后，重新进入 TUI 模式
+        execute!(std::io::stdout(), EnterAlternateScreen)?;
+        enable_raw_mode()?;
 
-        // If exec fails, return error
-        Err(format!("执行失败: {err}").into())
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("SSH 连接失败，退出码: {:?}", status.code()).into())
+        }
     }
 }

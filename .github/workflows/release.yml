@@ -3,201 +3,121 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-
-env:
-  CARGO_TERM_COLOR: always
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
-  build-and-release:
-    name: Build and Release
+  build:
+    name: Build for ${{ matrix.os }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: mssh
-            asset_name: mssh-linux-x86_64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-            artifact_name: mssh
-            asset_name: mssh-linux-x86_64-musl
+          - os: ubuntu-20.04
+            arch: x86_64
+          - os: ubuntu-20.04
+            arch: aarch64
           - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: mssh
-            asset_name: mssh-macos-x86_64
+            arch: x86_64
           - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: mssh
-            asset_name: mssh-macos-aarch64
+            arch: aarch64
+          - os: windows-latest
+            arch: x86_64
+          - os: windows-latest
+            arch: aarch64
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
-    - name: Setup Rust
-      uses: dtolnay/rust-toolchain@stable
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
       with:
-        targets: ${{ matrix.target }}
+        toolchain: stable
+        target: ${{ matrix.arch }}-unknown-linux-gnu # This will be ignored on non-linux platforms but is required
+        override: true
 
-    - name: Cache cargo dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Install musl tools (Linux musl only)
-      if: matrix.target == 'x86_64-unknown-linux-musl'
+    - name: Install cross-compilation tools (for aarch64 on x86_64)
+      if: runner.arch == 'x64' && matrix.arch == 'aarch64'
       run: |
         sudo apt-get update
-        sudo apt-get install -y musl-tools
+        sudo apt-get install -y gcc-aarch64-linux-gnu
+      shell: bash
 
     - name: Build binary
       run: |
-        cargo build --release --target ${{ matrix.target }}
-
-    - name: Strip binary (Linux and macOS)
-      if: matrix.os != 'windows-latest'
-      run: |
-        if command -v strip &> /dev/null; then
-          strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        if [ "${{ runner.os }}" == "Linux" ] && [ "${{ matrix.arch }}" == "aarch64" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            cargo build --release --target=aarch64-unknown-linux-gnu
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+             if [ "${{ matrix.arch }}" == "aarch64" ]; then
+                cargo build --release --target=aarch64-apple-darwin
+             else
+                cargo build --release --target=x86_64-apple-darwin
+             fi
+        elif [ "${{ runner.os }}" == "Windows" ]; then
+             if [ "${{ matrix.arch }}" == "aarch64" ]; then
+                cargo build --release --target=aarch64-pc-windows-msvc
+             else
+                cargo build --release --target=x86_64-pc-windows-msvc
+             fi
+        else
+            cargo build --release
         fi
+      shell: bash
 
-    - name: Compress binary with UPX (Linux only)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        # 安装 UPX
-        sudo apt-get update
-        sudo apt-get install -y upx-ucl
-        
-        # 压缩二进制文件
-        upx --best --lzma target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
-
-    - name: Create archive
+    - name: Package artifacts
       shell: bash
       run: |
-        cd target/${{ matrix.target }}/release
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          7z a ../../../${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}.exe
+        set -x
+        RELEASE_VERSION=${{ github.ref_name }}
+        OS_NAME=$(echo ${{ matrix.os }} | cut -d- -f1) # ubuntu -> ubuntu, macos -> macos, windows -> windows
+        if [ "$OS_NAME" == "ubuntu" ]; then OS_NAME="linux"; fi
+
+        ARTIFACT_DIR_NAME="mssh-${RELEASE_VERSION}-${OS_NAME}-${{ matrix.arch }}"
+        mkdir -p $ARTIFACT_DIR_NAME
+
+        if [ "${{ runner.os }}" == "Windows" ]; then
+            BINARY_PATH="target/${{ matrix.arch }}-pc-windows-msvc/release/mssh.exe"
+            cp "$BINARY_PATH" "${ARTIFACT_DIR_NAME}/mssh.exe"
+            7z a "${ARTIFACT_DIR_NAME}.zip" "./${ARTIFACT_DIR_NAME}"
+            echo "ASSET_NAME=${ARTIFACT_DIR_NAME}.zip" >> $GITHUB_ENV
         else
-          tar -czf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+            if [ "${{ runner.os }}" == "Linux" ]; then
+              BINARY_PATH="target/aarch64-unknown-linux-gnu/release/mssh"
+            elif [ "${{ runner.os }}" == "macOS" ] && [ "${{ matrix.arch }}" == "aarch64" ]; then
+              BINARY_PATH="target/aarch64-apple-darwin/release/mssh"
+            elif [ "${{ runner.os }}" == "macOS" ] && [ "${{ matrix.arch }}" == "x86_64" ]; then
+              BINARY_PATH="target/x86_64-apple-darwin/release/mssh"
+            else
+              BINARY_PATH="target/release/mssh"
+            fi
+            cp "$BINARY_PATH" "${ARTIFACT_DIR_NAME}/mssh"
+            tar -czf "${ARTIFACT_DIR_NAME}.tar.gz" "./${ARTIFACT_DIR_NAME}"
+            echo "ASSET_NAME=${ARTIFACT_DIR_NAME}.tar.gz" >> $GITHUB_ENV
         fi
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+    - name: Upload artifact for release
+      uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.asset_name }}
-        path: |
-          ${{ matrix.asset_name }}.tar.gz
-          ${{ matrix.asset_name }}.zip
+        name: ${{ env.ASSET_NAME }}
+        path: ${{ env.ASSET_NAME }}
 
-    - name: Calculate checksums
-      shell: bash
-      run: |
-        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-          certutil -hashfile ${{ matrix.asset_name }}.zip SHA256 > ${{ matrix.asset_name }}.zip.sha256
-        else
-          shasum -a 256 ${{ matrix.asset_name }}.tar.gz > ${{ matrix.asset_name }}.tar.gz.sha256
-        fi
-
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        name: Release ${{ github.ref_name }}
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-        files: |
-          ${{ matrix.asset_name }}.tar.gz
-          ${{ matrix.asset_name }}.tar.gz.sha256
-          ${{ matrix.asset_name }}.zip
-          ${{ matrix.asset_name }}.zip.sha256
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  create-release-info:
-    name: Create Release Info
-    needs: build-and-release
+  create-release:
+    name: Create Release
+    needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
 
-    - name: Generate release info
-      run: |
-        echo "# MSSH Release ${{ github.ref_name }}" > release_info.md
-        echo "" >> release_info.md
-        echo "## 📦 安装说明" >> release_info.md
-        echo "" >> release_info.md
-        echo "### Linux x86_64" >> release_info.md
-        echo "\`\`\`bash" >> release_info.md
-        echo "# 一键安装（推荐）" >> release_info.md
-        echo "curl -fsSL https://raw.githubusercontent.com/\${{ github.repository }}/main/install.sh | bash -s ${{ github.ref_name }}" >> release_info.md
-        echo "" >> release_info.md
-        echo "# 手动安装" >> release_info.md
-        echo "curl -L -o mssh-linux-x86_64.tar.gz https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-linux-x86_64.tar.gz" >> release_info.md
-        echo "tar -xzf mssh-linux-x86_64.tar.gz" >> release_info.md
-        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
-        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
-        echo "\`\`\`" >> release_info.md
-        echo "" >> release_info.md
-        echo "### macOS x86_64 (Intel)" >> release_info.md
-        echo "\`\`\`bash" >> release_info.md
-        echo "# 一键安装（推荐）" >> release_info.md
-        echo "curl -fsSL https://raw.githubusercontent.com/\${{ github.repository }}/main/install.sh | bash -s ${{ github.ref_name }}" >> release_info.md
-        echo "" >> release_info.md
-        echo "# 手动安装" >> release_info.md
-        echo "curl -L -o mssh-macos-x86_64.tar.gz https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-macos-x86_64.tar.gz" >> release_info.md
-        echo "tar -xzf mssh-macos-x86_64.tar.gz" >> release_info.md
-        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
-        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
-        echo "\`\`\`" >> release_info.md
-        echo "" >> release_info.md
-        echo "### macOS ARM64 (Apple Silicon)" >> release_info.md
-        echo "\`\`\`bash" >> release_info.md
-        echo "# 一键安装（推荐）" >> release_info.md
-        echo "curl -fsSL https://raw.githubusercontent.com/\${{ github.repository }}/main/install.sh | bash -s ${{ github.ref_name }}" >> release_info.md
-        echo "" >> release_info.md
-        echo "# 手动安装" >> release_info.md
-        echo "curl -L -o mssh-macos-aarch64.tar.gz https://github.com/\${{ github.repository }}/releases/download/${{ github.ref_name }}/mssh-macos-aarch64.tar.gz" >> release_info.md
-        echo "tar -xzf mssh-macos-aarch64.tar.gz" >> release_info.md
-        echo "sudo mv mssh /usr/local/bin/" >> release_info.md
-        echo "chmod +x /usr/local/bin/mssh" >> release_info.md
-        echo "\`\`\`" >> release_info.md
-        echo "" >> release_info.md
-        echo "## ✨ 功能特性" >> release_info.md
-        echo "- 🚀 SSH 配置管理" >> release_info.md
-        echo "- 🔧 端口转发支持" >> release_info.md
-        echo "- 🌐 代理支持 (SOCKS5/HTTP)" >> release_info.md
-        echo "- 🎨 直观的 TUI 界面" >> release_info.md
-        echo "- ⚡ 快速连接" >> release_info.md
-        echo "" >> release_info.md
-        echo "## 📝 使用方法" >> release_info.md
-        echo "\`\`\`bash" >> release_info.md
-        echo "# 启动 MSSH" >> release_info.md
-        echo "mssh" >> release_info.md
-        echo "" >> release_info.md
-        echo "# 快速连接" >> release_info.md
-        echo "mssh --connect 1" >> release_info.md
-        echo "" >> release_info.md
-        echo "# 导入 SSH 配置" >> release_info.md
-        echo "mssh --import-ssh" >> release_info.md
-        echo "\`\`\`" >> release_info.md
-        echo "" >> release_info.md
-        echo "## 🔐 校验和" >> release_info.md
-        echo "所有发布的二进制文件都附带 SHA256 校验和文件，请在下载后验证文件完整性。" >> release_info.md
-
-    - name: Update release description
-      uses: softprops/action-gh-release@v1
-      with:
-        body_path: release_info.md
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*/*
+          body: "Automated release for ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

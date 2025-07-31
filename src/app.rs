@@ -295,7 +295,11 @@ impl App {
     /// # 返回
     /// 返回 Result，成功为 Ok(())，失败为 Err
     pub fn show_import_selection(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let content = std::fs::read_to_string(format!("{}/.ssh/config", std::env::var("HOME")?))?;
+        let ssh_config_path = dirs::home_dir()
+            .ok_or("无法获取用户主目录")?
+            .join(".ssh")
+            .join("config");
+        let content = std::fs::read_to_string(ssh_config_path)?;
         let mut candidates = Vec::new();
 
         for line in content.lines() {

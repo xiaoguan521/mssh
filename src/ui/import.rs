@@ -14,7 +14,7 @@ pub fn render_import(f: &mut Frame, area: Rect, app: &mut App) {
         .split(area);
 
     let info_text = format!(
-        "从 ~/.ssh/config 文件中找到 {} 个配置 (已选择: {})",
+        "从系统 SSH 配置文件中找到 {} 个配置 (已选择: {})",
         app.import_candidates().len(),
         app.import_selected().iter().filter(|&&x| x).count()
     );

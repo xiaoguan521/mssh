@@ -44,7 +44,7 @@ impl ConfigManager {
     /// # 返回
     /// 返回配置目录路径，如果无法获取则返回 None
     fn get_config_dir() -> Option<PathBuf> {
-        dirs::home_dir().map(|home| home.join(".mssh"))
+        dirs::config_dir().map(|config| config.join("mssh"))
     }
 
     /// 创建新的配置管理器

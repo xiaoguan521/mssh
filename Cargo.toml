@@ -26,6 +26,8 @@ toml = "0.8"
 dirs = "5.0"
 anyhow = "1.0"
 thiserror = "1.0"
+shellexpand = "3.1"
+
 
 [profile.release]
 lto = true

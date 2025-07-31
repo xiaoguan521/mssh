@@ -149,13 +149,8 @@ fn run_app<B: ratatui::backend::Backend>(
         terminal.draw(|f| ui::ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
-            match EventHandler::handle_key_event(app, key) {
-                Ok(true) => return Ok(()), // 退出信号
-                Ok(false) => continue,     // 继续处理
-                Err(e) => {
-                    app.message_manager
-                        .set_error_message(format!("事件处理错误: {e}"));
-                }
+            if EventHandler::handle_key_event(app, key).unwrap_or(false) {
+                return Ok(());
             }
         }
     }
